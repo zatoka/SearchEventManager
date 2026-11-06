@@ -1,0 +1,913 @@
+{
+  "info": {
+    "_postman_id": "d8b7e19d-40a7-4e32-a4f0-9f5b82e1c6f2",
+    "name": "Ticketmaster Discovery API v2 - SearchEventsManager Tests",
+    "description": "Read-only GET tests for all documented Discovery v2 resource endpoints plus useful event-search examples. Set the environment apikey before running. Detail requests depend on IDs captured by preceding searches.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Event Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events.json?city={{city}}&stateCode={{stateCode}}&countryCode={{countryCode}}&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events.json"
+              ],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "disabled": false
+                },
+                {
+                  "key": "stateCode",
+                  "value": "{{stateCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": "Search events and save first event ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });",
+                  "const body = pm.response.json();",
+                  "const list = (body._embedded && body._embedded.events) || [];",
+                  "if (list.length && list[0].id) pm.environment.set('eventId', list[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Event Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": "Requires eventId saved by Event Search."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Event Images",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/images.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "images.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Events - Query Examples",
+      "item": [
+        {
+          "name": "Events - Keyword and Music",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events.json?keyword=concert&classificationName=Music&city={{city}}&stateCode={{stateCode}}&countryCode={{countryCode}}&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events.json"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "concert",
+                  "disabled": false
+                },
+                {
+                  "key": "classificationName",
+                  "value": "Music",
+                  "disabled": false
+                },
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "disabled": false
+                },
+                {
+                  "key": "stateCode",
+                  "value": "{{stateCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Events - Postal Code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events.json?postalCode={{postalCode}}&countryCode={{countryCode}}&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events.json"
+              ],
+              "query": [
+                {
+                  "key": "postalCode",
+                  "value": "{{postalCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Events - Source",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events.json?source=ticketmaster&countryCode={{countryCode}}&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events.json"
+              ],
+              "query": [
+                {
+                  "key": "source",
+                  "value": "ticketmaster",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Attractions",
+      "item": [
+        {
+          "name": "Attraction Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attractions.json?keyword=Little River Band&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attractions.json"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "Little River Band",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });",
+                  "const body = pm.response.json();",
+                  "const list = (body._embedded && body._embedded.attractions) || [];",
+                  "if (list.length && list[0].id) pm.environment.set('attractionId', list[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attraction Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attractions/{{attractionId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attractions",
+                "{{attractionId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Classifications",
+      "item": [
+        {
+          "name": "Classification Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/classifications.json?size=10&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "classifications.json"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "10",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });",
+                  "const body = pm.response.json();",
+                  "const list = (body._embedded && body._embedded.classifications) || [];",
+                  "if (list.length && list[0].id) pm.environment.set('classificationId', list[0].id);",
+                  "const first = list[0] || {};",
+                  "if (first.segment && first.segment.id) pm.environment.set('segmentId', first.segment.id);",
+                  "if (first.genre && first.genre.id) pm.environment.set('genreId', first.genre.id);",
+                  "if (first.subGenre && first.subGenre.id) pm.environment.set('subGenreId', first.subGenre.id);",
+                  "const segment = first.segment || {};",
+                  "if (segment.id) pm.environment.set('segmentId', segment.id);",
+                  "const genres = (segment._embedded && segment._embedded.genres) || [];",
+                  "if (genres.length && genres[0].id) {",
+                  "  pm.environment.set('genreId', genres[0].id);",
+                  "  const subs = (genres[0]._embedded && genres[0]._embedded.subgenres) || [];",
+                  "  if (subs.length && subs[0].id) pm.environment.set('subGenreId', subs[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Classification Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/classifications/{{classificationId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "classifications",
+                "{{classificationId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Genre Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/classifications/genres/{{genreId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "classifications",
+                "genres",
+                "{{genreId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Segment Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/classifications/segments/{{segmentId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "classifications",
+                "segments",
+                "{{segmentId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sub-Genre Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/classifications/subgenres/{{subGenreId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "classifications",
+                "subgenres",
+                "{{subGenreId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Venues",
+      "item": [
+        {
+          "name": "Venue Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/venues.json?city={{city}}&stateCode={{stateCode}}&countryCode={{countryCode}}&size=5&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues.json"
+              ],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "disabled": false
+                },
+                {
+                  "key": "stateCode",
+                  "value": "{{stateCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "5",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });",
+                  "const body = pm.response.json();",
+                  "const list = (body._embedded && body._embedded.venues) || [];",
+                  "if (list.length && list[0].id) pm.environment.set('venueId', list[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Venue Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/venues/{{venueId}}.json?apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "venues",
+                "{{venueId}}.json"
+              ],
+              "query": [
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Suggestions",
+      "item": [
+        {
+          "name": "Find Suggest",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/suggest.json?keyword=concert&city={{city}}&countryCode={{countryCode}}&apikey={{apikey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "suggest.json"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "concert",
+                  "disabled": false
+                },
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "disabled": false
+                },
+                {
+                  "key": "countryCode",
+                  "value": "{{countryCode}}",
+                  "disabled": false
+                },
+                {
+                  "key": "apikey",
+                  "value": "{{apikey}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://app.ticketmaster.com/discovery/v2",
+      "type": "string"
+    },
+    {
+      "key": "apikey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "city",
+      "value": "Saint Louis",
+      "type": "string"
+    },
+    {
+      "key": "stateCode",
+      "value": "MO",
+      "type": "string"
+    },
+    {
+      "key": "countryCode",
+      "value": "US",
+      "type": "string"
+    },
+    {
+      "key": "postalCode",
+      "value": "63146",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attractionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "classificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "venueId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "genreId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "segmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subGenreId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

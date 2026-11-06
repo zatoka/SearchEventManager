@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: searchevents-backend
+    ports:
+      - "8002:8002"
+    environment:
+      - TICKETMASTER_API_KEY=${TICKETMASTER_API_KEY}
+      - TICKETMASTER_API_SECRET=${TICKETMASTER_API_SECRET}
+    volumes:
+      - ./backend/events_manager.db:/app/events_manager.db
+      - ./backend/logs:/app/logs
+      - ./backend/st_louis_concert_venues.csv:/app/st_louis_concert_venues.csv
+    restart: unless-stopped
+    networks:
+      - searchevents-network
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: searchevents-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - searchevents-network
+
+networks:
+  searchevents-network:
+    driver: bridge

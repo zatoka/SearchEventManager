@@ -1,0 +1,9 @@
+name,url,scraper_type
+Busch Stadium,https://www.ticketmaster.com/venue/231027,ticketmaster_api
+Enterprise Center,https://www.ticketmaster.com/venue/214853,ticketmaster_api
+The Dome at America's Center,https://www.ticketmaster.com/venue/217277,ticketmaster_api
+Stifel Theatre,https://www.ticketmaster.com/venue/213197,ticketmaster_api
+Chaifetz Arena,https://www.axs.com/venues/119063/chaifetz-arena-tickets,axs
+Hollywood Casino Amphitheatre,https://www.ticketmaster.com/venue/21695,ticketmaster_api
+The Factory,https://www.thefactorystl.com/,thefactorystl
+Family Arena,https://www.familyarena.com/,familyarena

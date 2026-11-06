@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Playwright
+playwright-data/
+
+# Database (we'll mount this as volume)
+# events_manager.db
+
+# Logs (we'll mount this as volume)
+# logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Batch files (not needed in container)
+*.bat
+
+# Test files
+test_*.py
+tests/
+
+# Documentation
+*.md
