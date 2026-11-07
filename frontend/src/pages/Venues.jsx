@@ -860,43 +860,10 @@ const handleFetchEvents = async (venueId) => {
 
                 <p style={{ margin: '20px 0' }}>
                   Successfully fetched{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url =
-                        `/events?venue_id=${encodeURIComponent(fetchDialog.venueId)}` +
-                        `&venue_name=${encodeURIComponent(fetchDialog.venueName)}`;
-
-                      setFetchDialog(null);
-                      navigate(url);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#10b981',
-                      fontSize: '1.4rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      textDecoration: 'underline'
-                    }}
-                  >
+                  <strong style={{ color: '#10b981', fontSize: '1.4rem' }}>
                     {fetchDialog.count} events
-                  </button>
+                  </strong>
                 </p>
-
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    const url =
-                      `/events?venue_id=${encodeURIComponent(fetchDialog.venueId)}` +
-                      `&venue_name=${encodeURIComponent(fetchDialog.venueName)}`;
-
-                    setFetchDialog(null);
-                    navigate(url);
-                  }}
-                >
-                  📅 View Events
-                </button>
               </div>
             ) : (
               <div style={{ padding: 20 }}>
@@ -904,11 +871,31 @@ const handleFetchEvents = async (venueId) => {
               </div>
             )}
 
+            {/* All dialog buttons on one row */}
             <div style={{
               display: 'flex',
               justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 10,
               padding: '0 20px 20px'
             }}>
+              {fetchDialog.type === 'success' && (
+                <button
+                  className="btn btn-primary"
+                  disabled={fetchDialog.count === 0}
+                  onClick={() => {
+                    // Show this venue's events on the Ticketmaster page,
+                    // where they can be browsed and saved to My Events.
+                    const url = `/?venue_id=${encodeURIComponent(fetchDialog.venueId)}`;
+
+                    setFetchDialog(null);
+                    navigate(url);
+                  }}
+                >
+                  📅 View Events
+                </button>
+              )}
+
               <button
                 className="btn btn-secondary"
                 onClick={() => setFetchDialog(null)}

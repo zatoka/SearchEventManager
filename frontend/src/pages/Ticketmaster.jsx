@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 // Use relative URLs for Docker deployment (nginx will proxy to backend)
@@ -7,6 +8,13 @@ import dayjs from 'dayjs';
 const API_BASE = 'http://127.0.0.1:8002/api';
 
 export default function Ticketmaster() {
+  // A venue can be passed in from the Venues page "View Events" button: /?venue_id=<id>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [autoSearch, setAutoSearch] = useState(false);
+
+  // Result dialog for "Save to My Events" (replaces browser alert boxes)
+  const [saveDialog, setSaveDialog] = useState(null);
+
   const [events, setEvents] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -74,13 +82,21 @@ export default function Ticketmaster() {
       });
       
       if (res.ok) {
-        alert(`Saved: ${event.title}`);
+        setSaveDialog({ type: 'success', title: event.title });
       } else {
-        const err = await res.json();
-        alert(err.detail || 'Failed to save event');
+        const err = await res.json().catch(() => ({}));
+        setSaveDialog({
+          type: 'error',
+          title: event.title,
+          message: err.detail || 'Failed to save event'
+        });
       }
     } catch (err) {
-      alert('Error saving event: ' + err.message);
+      setSaveDialog({
+        type: 'error',
+        title: event.title,
+        message: 'Error saving event: ' + err.message
+      });
     }
   };
 
@@ -127,6 +143,36 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
     setLoading(false);
   }
 }, [region, keyword, classification, venue, venueId, venueScraper, venueMode, dayOfWeek, daysAhead, currentPage]);
+
+  // When opened from Venues -> Fetch Events -> View Events, preselect that
+  // venue once the venue list has loaded, then run the search.
+  useEffect(() => {
+    const incomingVenueId = searchParams.get('venue_id');
+    if (!incomingVenueId || venues.length === 0) return;
+
+    const selected = venues.find(v => String(v.id) === incomingVenueId);
+
+    if (selected) {
+      setVenueMode('individual');
+      setVenueId(String(selected.id));
+      setVenue(selected.name);
+      setVenueScraper(selected.scraper_type || '');
+      setCurrentPage(0);
+      setAutoSearch(true);
+    } else {
+      setError('The selected venue was not found in My Venues.');
+    }
+
+    // Remove the parameter so a refresh or later visit does not re-run it.
+    setSearchParams({}, { replace: true });
+  }, [searchParams, venues, setSearchParams]);
+
+  // Runs after the venue state above has been applied.
+  useEffect(() => {
+    if (!autoSearch) return;
+    setAutoSearch(false);
+    searchEvents(0);
+  }, [autoSearch, searchEvents]);
 
    const clearFilters = () => {
     setKeyword('');
@@ -284,7 +330,9 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
       ) : (
         <>
           <p style={{ marginBottom: 20, color: '#888' }}>
-            Found {events.length} events in {region === 'saint_louis' ? 'Saint Louis' : 'Chicago'} Metro
+            {venueMode === 'individual' && venue
+              ? `Found ${totalEvents || events.length} events at ${venue}`
+              : `Found ${events.length} events in ${region === 'saint_louis' ? 'Saint Louis' : 'Chicago'} Metro`}
           </p>
           <div className="cards-grid">
             {events.map(event => (
@@ -375,6 +423,62 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Save to My Events result dialog (same style as Fetch Events dialog) */}
+      {saveDialog && (
+        <div className="modal-overlay" onClick={() => setSaveDialog(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-dialog-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="save-dialog-title">
+                {saveDialog.type === 'success'
+                  ? '✅ Event Saved'
+                  : '⚠️ Save Failed'}
+              </h2>
+
+              <button
+                className="modal-close"
+                aria-label="Close"
+                onClick={() => setSaveDialog(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <h3>{saveDialog.title}</h3>
+
+              <p style={{ margin: '20px 0' }}>
+                {saveDialog.type === 'success'
+                  ? 'This event was added to My Events.'
+                  : saveDialog.message}
+              </p>
+            </div>
+
+            {/* All dialog buttons on one row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 10,
+              padding: '0 20px 20px'
+            }}>
+              <button
+                className="btn btn-secondary"
+                autoFocus
+                onClick={() => setSaveDialog(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

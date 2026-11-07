@@ -1,18 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { fetchVenueEvents } from '../api/client';
 
 // Use relative URLs for Docker deployment (nginx will proxy to backend)
 // In development, this will work because of Vite proxy or direct connection
 
 const API_BASE = 'http://127.0.0.1:8002/api';
 
+// My Events: shows only events the user explicitly saved.
+// Venue search results are shown on the Ticketmaster page instead.
 export default function Events() {
-
-  const [searchParams] = useSearchParams();
-  const venueId = searchParams.get('venue_id');
-  const venueName = searchParams.get('venue_name');
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,15 +17,9 @@ export default function Events() {
     try {
       setLoading(true);
 
-      let data;
-
-      if (venueId) {
-        data = await fetchVenueEvents(venueId);
-      } else {
-        const res = await fetch(`${API_BASE}/my-events/`);
-        if (!res.ok) throw new Error('Failed to load events');
-        data = await res.json();
-      }
+      const res = await fetch(`${API_BASE}/my-events/`);
+      if (!res.ok) throw new Error('Failed to load events');
+      const data = await res.json();
 
       setEvents(data);
     } catch (err) {
@@ -37,26 +27,44 @@ export default function Events() {
     } finally {
       setLoading(false);
     }
-  }, [venueId]);
+  }, []);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
-  const handleRemove = async (id, title) => {
-    if (!confirm(`Remove "${title}" from My Events?`)) return;
-    
+  // Remove dialog (replaces browser confirm/alert boxes)
+  // type: 'confirm' -> ask first, 'error' -> show failure
+  const [removeDialog, setRemoveDialog] = useState(null);
+  const [removing, setRemoving] = useState(false);
+
+  const handleRemove = (id, title) => {
+    setRemoveDialog({ type: 'confirm', id, title });
+  };
+
+  const confirmRemove = async () => {
+    if (!removeDialog) return;
+    const { id, title } = removeDialog;
+    setRemoving(true);
+
     try {
       const res = await fetch(`${API_BASE}/my-events/${id}`, {
         method: 'DELETE'
       });
-      
+
       if (res.ok) {
+        setRemoveDialog(null);
         loadEvents();
       } else {
-        alert('Failed to remove event');
+        setRemoveDialog({ type: 'error', title, message: 'Failed to remove event.' });
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      setRemoveDialog({ type: 'error', title, message: 'Error: ' + err.message });
+    } finally {
+      setRemoving(false);
     }
+  };
+
+  const closeRemoveDialog = () => {
+    if (!removing) setRemoveDialog(null);
   };
 
   // Group events by month for better organization
@@ -87,25 +95,16 @@ export default function Events() {
   return (
     <div>
       <div className="page-header">
-        <h1>📅 {venueId ? venueName || 'Venue Events' : 'My Events'}</h1>
+        <h1>📅 My Events</h1>
             <span style={{ color: '#888' }}>
-                 {events.length} {venueId ? 'events found' : 'saved events'}
+                 {events.length} saved events
             </span>
       </div>
 
       {events.length === 0 ? (
         <div className="empty-state">
-          {venueId ? (
-            <>
-              <p>No events found for this venue.</p>
-              <p>Try fetching events again later.</p>
-            </>
-          ) : (
-            <>
-              <p>No saved events yet.</p>
-              <p>Go to <strong>Ticketmaster</strong> to search and save events you're interested in.</p>
-            </>
-          )}
+          <p>No saved events yet.</p>
+          <p>Go to <strong>Ticketmaster</strong> to search and save events you're interested in.</p>
         </div>
       ) : (
         Object.entries(groupedEvents).map(([month, monthEvents]) => (
@@ -192,14 +191,12 @@ export default function Events() {
                           🎟️ Get Tickets
                         </a>
                       )}
-                      {!venueId && (
-                        <button 
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleRemove(event.id, event.title)}
-                        >
-                          🗑️ Remove
-                        </button>
-                      )}
+                      <button 
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleRemove(event.id, event.title)}
+                      >
+                        🗑️ Remove
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -207,6 +204,74 @@ export default function Events() {
             </div>
           </div>
         ))
+      )}
+
+      {/* Remove event dialog (same style as Fetch Events dialog) */}
+      {removeDialog && (
+        <div className="modal-overlay" onClick={closeRemoveDialog}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-dialog-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="remove-dialog-title">
+                {removeDialog.type === 'confirm'
+                  ? '🗑️ Remove Event'
+                  : '⚠️ Remove Failed'}
+              </h2>
+
+              <button
+                className="modal-close"
+                aria-label="Close"
+                onClick={closeRemoveDialog}
+                disabled={removing}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <h3>{removeDialog.title}</h3>
+
+              <p style={{ margin: '20px 0' }}>
+                {removeDialog.type === 'confirm'
+                  ? 'Remove this event from My Events?'
+                  : removeDialog.message}
+              </p>
+            </div>
+
+            {/* All dialog buttons on one row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 10,
+              padding: '0 20px 20px'
+            }}>
+              {removeDialog.type === 'confirm' && (
+                <button
+                  className="btn btn-danger"
+                  onClick={confirmRemove}
+                  disabled={removing}
+                >
+                  {removing ? 'Removing...' : '🗑️ Remove'}
+                </button>
+              )}
+
+              <button
+                className="btn btn-secondary"
+                autoFocus
+                onClick={closeRemoveDialog}
+                disabled={removing}
+              >
+                {removeDialog.type === 'confirm' ? 'Cancel' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
