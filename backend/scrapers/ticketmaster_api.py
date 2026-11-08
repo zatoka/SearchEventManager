@@ -536,10 +536,28 @@ def _parse_event(event: dict) -> Optional[dict]:
             venue_latitude = location.get("latitude")
             venue_longitude = location.get("longitude")
         
+        # Performers (attractions): name plus the MusicBrainz ID used to look up
+        # setlists on setlist.fm, and the artist's YouTube link when available.
+        attractions = []
+        for attraction in embedded.get("attractions", []) or []:
+            name = attraction.get("name")
+            if not name:
+                continue
+            links = attraction.get("externalLinks") or {}
+            mbid = ((links.get("musicbrainz") or [{}])[0] or {}).get("id")
+            youtube_url = ((links.get("youtube") or [{}])[0] or {}).get("url")
+            attractions.append({
+                "name": name,
+                "ticketmaster_attraction_id": attraction.get("id"),
+                "mbid": mbid,
+                "youtube_url": youtube_url,
+            })
+
         # Day of week
         day_of_week = get_day_of_week(event_date) if event_date else None
         
         return {
+            "attractions": attractions,
             "title": title,
             "event_date": event_date,
             "event_time": event_time,

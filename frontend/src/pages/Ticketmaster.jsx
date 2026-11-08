@@ -15,6 +15,7 @@ export default function Ticketmaster() {
   // Result dialog for "Save to My Events" (replaces browser alert boxes)
   const [saveDialog, setSaveDialog] = useState(null);
 
+
   const [events, setEvents] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -98,6 +99,18 @@ export default function Ticketmaster() {
         message: 'Error saving event: ' + err.message
       });
     }
+  };
+
+  // ── YouTube link for every event ─────────────────────────────────────────
+  const youtubeSearchUrl = (query) =>
+    `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+
+  // Performer's YouTube channel from Ticketmaster when available, otherwise
+  // a YouTube search for the performer (or the event title if none is listed).
+  const eventYoutubeUrl = (event) => {
+    const first = event.attractions?.[0];
+    if (first?.youtube_url) return first.youtube_url;
+    return youtubeSearchUrl(first?.name || event.title);
   };
 
   // Search function
@@ -375,6 +388,15 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
                       >
                         💾 Save to My Events
                       </button>
+                      <a
+                        className="btn btn-secondary btn-sm"
+                        href={eventYoutubeUrl(event)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Watch ${event.title} on YouTube`}
+                      >
+                        ▶ YouTube
+                      </a>
                       <a 
                         href={event.event_url} 
                         target="_blank" 
