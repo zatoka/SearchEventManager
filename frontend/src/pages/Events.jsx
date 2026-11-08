@@ -6,6 +6,10 @@ import dayjs from 'dayjs';
 
 const API_BASE = 'http://127.0.0.1:8002/api';
 
+// Saved events do not store performer links, so search YouTube by event title.
+const youtubeSearchUrl = (query) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(query || '')}`;
+
 // My Events: shows only events the user explicitly saved.
 // Venue search results are shown on the Ticketmaster page instead.
 export default function Events() {
@@ -191,6 +195,15 @@ export default function Events() {
                           🎟️ Get Tickets
                         </a>
                       )}
+                      <a
+                        className="btn btn-secondary btn-sm"
+                        href={youtubeSearchUrl(event.title)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Watch ${event.title} on YouTube`}
+                      >
+                        ▶ YouTube
+                      </a>
                       <button 
                         className="btn btn-danger btn-sm"
                         onClick={() => handleRemove(event.id, event.title)}
