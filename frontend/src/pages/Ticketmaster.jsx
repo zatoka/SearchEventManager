@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 
@@ -6,6 +6,9 @@ import dayjs from 'dayjs';
 // In development, this will work because of Vite proxy or direct connection
 
 const API_BASE = 'http://127.0.0.1:8002/api';
+
+// A search that takes longer than this is stopped with a friendly message.
+const SEARCH_TIMEOUT_MS = 60000;
 
 export default function Ticketmaster() {
   // A venue can be passed in from the Venues page "View Events" button: /?venue_id=<id>
@@ -23,6 +26,13 @@ export default function Ticketmaster() {
   const [totalEvents, setTotalEvents] = useState(0);
   const [region, setRegion] = useState('saint_louis');
   const [loading, setLoading] = useState(false);
+
+  // Search progress / cancel / timeout
+  const searchRef = useRef(null);        // { controller, requestId } of the running search
+  const requestIdRef = useRef(0);        // increments per search; stale results are ignored
+  const [searchStartedAt, setSearchStartedAt] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
   
   // Filter options from API
@@ -114,10 +124,22 @@ export default function Ticketmaster() {
   };
 
   // Search function
- // Search function with pagination
+ // Search function with pagination.
+ // Each search can be cancelled, stops after SEARCH_TIMEOUT_MS, and a newer
+ // search replaces an older one (late responses from old searches are ignored).
 const searchEvents = useCallback(async (pageToLoad = currentPage) => {
+  // Stop any search that is still running.
+  if (searchRef.current) searchRef.current.controller.abort('replaced');
+
+  const controller = new AbortController();
+  const requestId = (requestIdRef.current += 1);
+  const timer = setTimeout(() => controller.abort('timeout'), SEARCH_TIMEOUT_MS);
+  searchRef.current = { controller, requestId };
+
   setLoading(true);
   setError(null);
+  setNotice(null);
+  setSearchStartedAt(Date.now());
 
   const params = new URLSearchParams();
   params.append('region', region);
@@ -137,12 +159,21 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
   params.append('size', 50);
   params.append('page', pageToLoad);
 
-  try {
-    const res = await fetch(`${API_BASE}/ticketmaster/search?${params}`);
+  const isCurrent = () => requestIdRef.current === requestId;
 
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+  try {
+    const res = await fetch(`${API_BASE}/ticketmaster/search?${params}`, {
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      // Show the backend's explanation when it sends one.
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Search failed (error ${res.status}). Please try again.`);
+    }
 
     const data = await res.json();
+    if (!isCurrent()) return;
 
     setEvents(data.events || []);
     setHasSearched(true);
@@ -151,11 +182,65 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
     setTotalEvents(data.total || 0);
 
   } catch (err) {
-    setError(err.message);
+    if (!isCurrent()) return;  // replaced by a newer search
+
+    if (controller.signal.aborted) {
+      const reason = controller.signal.reason;
+      if (reason === 'timeout') {
+        setError(
+          `The search took longer than ${SEARCH_TIMEOUT_MS / 1000} seconds and was stopped. ` +
+          'Try a shorter date range, one venue instead of My Venues Only, or add a keyword.'
+        );
+      } else if (reason === 'cancelled') {
+        setNotice('Search cancelled. Change your filters and click Search Events when ready.');
+      }
+    } else if (err instanceof TypeError) {
+      // fetch() network failure: backend not running or unreachable
+      setError('Could not reach the search service. Make sure the backend is running, then try again.');
+    } else {
+      setError(err.message);
+    }
   } finally {
-    setLoading(false);
+    clearTimeout(timer);
+    if (isCurrent()) {
+      searchRef.current = null;
+      setLoading(false);
+      setSearchStartedAt(null);
+    }
   }
 }, [region, keyword, classification, venue, venueId, venueScraper, venueMode, dayOfWeek, daysAhead, currentPage]);
+
+  const cancelSearch = () => {
+    if (searchRef.current) searchRef.current.controller.abort('cancelled');
+  };
+
+  // Seconds counter for the progress panel.
+  useEffect(() => {
+    if (!searchStartedAt) {
+      setElapsed(0);
+      return undefined;
+    }
+    const tick = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - searchStartedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [searchStartedAt]);
+
+  // Stop a running search when leaving the page.
+  useEffect(() => () => {
+    if (searchRef.current) searchRef.current.controller.abort('replaced');
+  }, []);
+
+  const progressMessage = () => {
+    if (elapsed < 5) return 'Searching for events...';
+    if (elapsed < 15) {
+      return venueMode === 'my_venues'
+        ? 'Checking each of your saved venues...'
+        : 'Still searching...';
+    }
+    if (elapsed < 30) return 'This is taking longer than usual. You can keep waiting or cancel.';
+    return `Almost at the ${SEARCH_TIMEOUT_MS / 1000}-second limit. Cancel and narrow your search if you prefer.`;
+  };
 
   // When opened from Venues -> Fetch Events -> View Events, preselect that
   // venue once the venue list has loaded, then run the search.
@@ -188,6 +273,16 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
   }, [autoSearch, searchEvents]);
 
    const clearFilters = () => {
+    // Stop a running search; its results should not appear after clearing.
+    if (searchRef.current) {
+      searchRef.current.controller.abort('replaced');
+      searchRef.current = null;
+      requestIdRef.current += 1;
+      setLoading(false);
+      setSearchStartedAt(null);
+    }
+    setError(null);
+    setNotice(null);
     setKeyword('');
     setClassification('');
     setVenue('');
@@ -212,13 +307,20 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
           Clear Filters
         </button>
 
+        {/* While searching, filters stay usable: Search again replaces the
+            running search, Cancel stops it. */}
         <button
           className="btn btn-primary"
           onClick={() => searchEvents(0)}
-          disabled={loading}
         >
-           {loading ? 'Searching...' : 'Search Events'}
-        </button>  
+          {loading ? '🔄 Search Again' : 'Search Events'}
+        </button>
+
+        {loading && (
+          <button className="btn btn-danger" onClick={cancelSearch}>
+            ✖ Cancel
+          </button>
+        )}
       </div>
 
       {/* Filter Controls */}
@@ -320,13 +422,36 @@ const searchEvents = useCallback(async (pageToLoad = currentPage) => {
       </div>
 
       {error && (
-        <div className="error-msg" style={{ marginBottom: 20 }}>
-          Error: {error}
+        <div className="error-msg" role="alert" style={{ marginBottom: 20 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {notice && !loading && (
+        <div role="status" style={{ marginBottom: 20, color: '#888' }}>
+          ℹ️ {notice}
         </div>
       )}
 
        {loading ? (
-        <div className="loading">Searching Ticketmaster...</div>
+        <div
+          className="card"
+          role="status"
+          aria-live="polite"
+          style={{ padding: 30, textAlign: 'center', marginBottom: 20 }}
+        >
+          <div className="search-spinner" aria-hidden="true" />
+          <p style={{ margin: '14px 0 6px', fontWeight: 600 }}>{progressMessage()}</p>
+          <p style={{ margin: '0 0 6px', color: '#888' }}>
+            {elapsed}s elapsed · stops automatically after {SEARCH_TIMEOUT_MS / 1000}s
+          </p>
+          <p style={{ margin: '0 0 16px', color: '#888', fontSize: '0.85rem' }}>
+            You can change the filters and click Search Again at any time.
+          </p>
+          <button className="btn btn-secondary" onClick={cancelSearch}>
+            ✖ Cancel Search
+          </button>
+        </div>
       ) : events.length === 0 ? (
         <div className="empty-state">
           {!hasSearched ? (

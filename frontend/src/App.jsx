@@ -2,6 +2,10 @@ import { HashRouter, Routes, Route, NavLink } from 'react-router-dom';
 import Venues from './pages/Venues';
 import Events from './pages/Events';
 import Ticketmaster from './pages/Ticketmaster';
+import Help from './pages/Help';
+// Hidden troubleshooting dialogs: Ctrl+Shift+L (logs), Ctrl+Shift+D (database).
+// To remove them from the UI, delete this import and <DiagnosticsDialogs /> below.
+import DiagnosticsDialogs from './components/DiagnosticsDialogs';
 import './App.css';
 
 export default function App() {
@@ -29,6 +33,11 @@ export default function App() {
                 🏛️ Venues
               </NavLink>
             </li>
+            <li>
+              <NavLink to="/help" className={({ isActive }) => isActive ? 'active' : ''}>
+                ❓ Help
+              </NavLink>
+            </li>
           </ul>
         </nav>
         <main className="main-content">
@@ -36,9 +45,11 @@ export default function App() {
             <Route path="/" element={<Ticketmaster />} />
             <Route path="/events" element={<Events />} />
             <Route path="/venues" element={<Venues />} />
+            <Route path="/help" element={<Help />} />
           </Routes>
         </main>
       </div>
+      <DiagnosticsDialogs />
     </HashRouter>
   );
 }

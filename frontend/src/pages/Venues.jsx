@@ -12,10 +12,13 @@ import {
   fetchVenueEvents
 } from '../api/client';
 
+// Scraper types offered for new/edited venues: only types that need no browser.
+// Legacy browser-based types (axs, metrotix, city_winery, ...) still work for
+// venues that already use them; they are shown only when editing such a venue.
 const SCRAPER_TYPES = [
   { value: 'ticketmaster', label: 'Ticketmaster' },
-  { value: 'axs', label: 'AXS' },
-  { value: 'metrotix', label: 'MetroTix' },
+  { value: 'city_winery_feed', label: 'City Winery (St. Louis / Chicago)' },
+  { value: 'metrotix_html', label: 'MetroTix (e.g. The Sheldon)' },
 ];
 
 export default function Venues() {
@@ -32,6 +35,8 @@ export default function Venues() {
   const [searching, setSearching] = useState(false);
   const [fetchingId, setFetchingId] = useState(null);
   const [fetchDialog, setFetchDialog] = useState(null);
+  const [removeDialog, setRemoveDialog] = useState(null);
+  const [removingVenue, setRemovingVenue] = useState(false);
   const [addingVenueId, setAddingVenueId] = useState(null);
 
   const [discoveredVenues, setDiscoveredVenues] = useState([]);
@@ -174,18 +179,35 @@ export default function Venues() {
   // My Venues
   // --------------------------------------------------
 
-  const handleRemoveMyVenue = async (venueId) => {
-    if (!confirm('Remove this venue from My Venues?')) return;
+  // Remove venue dialog (replaces browser confirm/alert boxes)
+  // type: 'confirm' -> ask first, 'error' -> show failure
+  const handleRemoveMyVenue = (venue) => {
+    setRemoveDialog({ type: 'confirm', id: venue.id, name: venue.name });
+  };
+
+  const confirmRemoveVenue = async () => {
+    if (!removeDialog) return;
+    const { id, name } = removeDialog;
+    setRemovingVenue(true);
 
     try {
-      await removeMyVenue(venueId);
+      await removeMyVenue(id);
+      setRemoveDialog(null);
       await loadMyVenues();
     } catch (err) {
-      alert(
-        'Failed to remove venue: ' +
-        (err.response?.data?.detail || err.message)
-      );
+      setRemoveDialog({
+        type: 'error',
+        name,
+        message: 'Failed to remove venue: ' +
+          (err.response?.data?.detail || err.message)
+      });
+    } finally {
+      setRemovingVenue(false);
     }
+  };
+
+  const closeRemoveDialog = () => {
+    if (!removingVenue) setRemoveDialog(null);
   };
 
   // --------------------------------------------------
@@ -373,7 +395,7 @@ const handleFetchEvents = async (venueId) => {
 
         <button
           className="btn btn-danger btn-sm"
-          onClick={() => handleRemoveMyVenue(venue.id)}
+          onClick={() => handleRemoveMyVenue(venue)}
         >
           Remove
         </button>
@@ -788,6 +810,14 @@ const handleFetchEvents = async (venueId) => {
                     </option>
                   ))}
 
+                  {/* Keep a legacy value visible so editing does not silently change it */}
+                  {formData.scraper_type &&
+                    !SCRAPER_TYPES.some(t => t.value === formData.scraper_type) && (
+                    <option value={formData.scraper_type}>
+                      {formData.scraper_type} (legacy - needs browser)
+                    </option>
+                  )}
+
                 </select>
               </div>
 
@@ -832,6 +862,74 @@ const handleFetchEvents = async (venueId) => {
 
           </div>
 
+        </div>
+      )}
+
+      {/* Remove Venue Dialog (same style as other dialogs) */}
+      {removeDialog && (
+        <div className="modal-overlay" onClick={closeRemoveDialog}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-venue-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="remove-venue-title">
+                {removeDialog.type === 'confirm'
+                  ? '🗑️ Remove Venue'
+                  : '⚠️ Remove Failed'}
+              </h2>
+
+              <button
+                className="modal-close"
+                aria-label="Close"
+                onClick={closeRemoveDialog}
+                disabled={removingVenue}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <h3>{removeDialog.name}</h3>
+
+              <p style={{ margin: '20px 0' }}>
+                {removeDialog.type === 'confirm'
+                  ? 'Remove this venue from My Venues? Your saved events are kept.'
+                  : removeDialog.message}
+              </p>
+            </div>
+
+            {/* All dialog buttons on one row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 10,
+              padding: '0 20px 20px'
+            }}>
+              {removeDialog.type === 'confirm' && (
+                <button
+                  className="btn btn-danger"
+                  onClick={confirmRemoveVenue}
+                  disabled={removingVenue}
+                >
+                  {removingVenue ? 'Removing...' : '🗑️ Remove'}
+                </button>
+              )}
+
+              <button
+                className="btn btn-secondary"
+                autoFocus
+                onClick={closeRemoveDialog}
+                disabled={removingVenue}
+              >
+                {removeDialog.type === 'confirm' ? 'Cancel' : 'Close'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

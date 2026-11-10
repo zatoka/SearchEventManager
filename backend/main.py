@@ -12,6 +12,7 @@ from database import get_db
 from routes.venues import router as venues_router
 from routes.events import router as events_router
 from routes.regions import router as regions_router
+from routes.diagnostics import router as diagnostics_router
 
 print("=" * 50)
 print("SearchEventsManager Backend Starting...")
@@ -48,6 +49,7 @@ async def initialize_database():
 app.include_router(venues_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
 app.include_router(regions_router, prefix="/api")
+app.include_router(diagnostics_router, prefix="/api")
 
 @app.get("/")
 async def root():

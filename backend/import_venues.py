@@ -9,7 +9,8 @@ Usage:
 Supported CSV formats:
     Format 1 (simple): name, url, scraper_type
     Format 2 (detailed): venue_name, venue_type, scraper, street_address, city, state, zip_code, official_website_url
-                         scraper: TM = Ticketmaster API, MX = MetroTix
+                         scraper: TM = Ticketmaster API, MX = MetroTix (metrotix_html),
+                                  CW = City Winery (city_winery_feed)
 """
 import asyncio
 import csv
@@ -76,16 +77,17 @@ def parse_scraper_type(scraper_code: str, name: str, url: str) -> tuple:
     name_lower = name.lower()
     
     if code == 'MX':
-        # MetroTix - use MetroTix URL
+        # MetroTix - no-browser HTML scraper; needs the MetroTix venue page URL
         metrotix_url = METROTIX_URLS.get(name_lower)
         if metrotix_url:
-            return 'metrotix', metrotix_url
+            return 'metrotix_html', metrotix_url
         else:
             print(f"[WARN] No MetroTix URL found for: {name}")
-            return 'metrotix', url
+            return 'metrotix_html', url
     elif code == 'CW':
-        # City Winery - use city_winery scraper
-        return 'city_winery', url
+        # City Winery - no-browser feed scraper; the events page URL picks the city
+        city = 'chicago' if 'chicago' in (url + name).lower() else 'st-louis'
+        return 'city_winery_feed', f'https://citywinery.com/pages/events/{city}'
     elif code == 'TM':
         return 'ticketmaster_api', url
     else:

@@ -10,7 +10,7 @@ import json
 
 from database import get_db
 from models import EventResponse, SearchFilters
-from scrapers import SCRAPER_MAP
+from scrapers import SCRAPER_MAP, URL_SCRAPERS
 
 router = APIRouter(tags=["events"])
 
@@ -40,8 +40,11 @@ async def fetch_events(venue_id: str):
                 size=100,
                 page=0
             )
+        elif scraper_type in URL_SCRAPERS:
+            # No-browser scrapers (City Winery feeds, MetroTix HTML)
+            events = await _fetch_url_scraper(scraper_type, venue["url"], venue["name"])
         else:
-            # Preserve existing behavior for MetroTix, City Winery,
+            # Preserve existing behavior for legacy MetroTix, City Winery,
             # and older Ticketmaster records without a Ticketmaster ID.
             scraper = SCRAPER_MAP.get(scraper_type)
 
@@ -82,6 +85,68 @@ from scrapers.ticketmaster_api import (
     CLASSIFICATION_LIST
 )
 
+# City Winery uses its own genre tags (e.g. "Blues-Jazz", "Comedy", "Wine").
+# Map them onto the Ticketmaster category dropdown values.
+_FEED_NON_MUSIC = ("comedy", "wine", "podcast", "book", "poetry", "drag", "brunch")
+_FEED_CATEGORY_KEYWORDS = {
+    "arts & theatre": ("comedy", "drag", "poetry", "book", "podcast", "theatre", "theater"),
+    "miscellaneous": ("wine", "brunch"),
+    "film": ("film", "movie"),
+    "sports": ("sport",),
+}
+
+
+def _feed_category_matches(category: str, classification: str) -> bool:
+    text = (category or "").lower()
+    wanted = classification.strip().lower()
+    if wanted == "music":
+        return not any(word in text for word in _FEED_NON_MUSIC)
+    keywords = _FEED_CATEGORY_KEYWORDS.get(wanted, (wanted,))
+    return any(word in text for word in keywords)
+
+
+async def _fetch_url_scraper(scraper_type, url, venue_name=None):
+    """Run a no-browser URL scraper (see scrapers.URL_SCRAPERS) for a saved venue."""
+    if scraper_type == "city_winery_feed":
+        return await SCRAPER_MAP[scraper_type](url=url)
+
+    if scraper_type == "metrotix_html":
+        events = await SCRAPER_MAP[scraper_type](url, venue_name)
+        # Show the venue name the user saved (MetroTix labels e.g. "Sheldon").
+        if venue_name:
+            for event in events:
+                event["venue_name"] = venue_name
+        return events
+
+    raise ValueError(f"Not a URL scraper: {scraper_type}")
+
+
+def _filter_feed_events(events, end_date, keyword, classification, day_of_week):
+    """Apply the Ticketmaster page filters to feed-based (non-Ticketmaster) events."""
+    from scrapers.ticketmaster_api import filter_events_by_day
+
+    last_day = end_date[:10]
+    events = [
+        e for e in events
+        if not e.get("event_date") or e["event_date"] <= last_day
+    ]
+    if keyword:
+        kw = keyword.lower()
+        events = [
+            e for e in events
+            if kw in (e.get("title") or "").lower()
+            or kw in (e.get("category") or "").lower()
+        ]
+    if classification:
+        events = [
+            e for e in events
+            if _feed_category_matches(e.get("category"), classification)
+        ]
+    if day_of_week:
+        events = filter_events_by_day(events, day_of_week)
+    return events
+
+
 @router.get("/ticketmaster/search")
 async def ticketmaster_search(
     region: str = Query("saint_louis", description="Search region"),
@@ -113,6 +178,7 @@ async def ticketmaster_search(
     try:
         # Look up the selected saved venue
         ticketmaster_venue_id = None
+        selected_venue = None
 
         if venue_id:
             db = await get_db()
@@ -144,7 +210,8 @@ async def ticketmaster_search(
                         status_code=400,
                         detail=f"{venue} does not have a Ticketmaster venue ID"
                     )
-        # My Venues Only - search every saved Ticketmaster venue
+        # My Venues Only - search every saved Ticketmaster venue,
+        # plus saved City Winery (feed) venues
         if venue_mode == "my_venues" and not venue_id:
             db = await get_db()
 
@@ -208,6 +275,39 @@ async def ticketmaster_search(
                         seen_event_ids.add(event_id)
                         combined_events.append(event)
 
+            # Also include saved venues that use a no-browser URL scraper
+            # (City Winery feeds, MetroTix HTML).
+            placeholders = ", ".join("?" * len(URL_SCRAPERS))
+            async with db.execute(
+                f"""
+                SELECT name, url, scraper_type
+                FROM venues
+                WHERE scraper_type IN ({placeholders})
+                """,
+                tuple(sorted(URL_SCRAPERS))
+            ) as cursor:
+                feed_venues = await cursor.fetchall()
+
+            if feed_venues:
+                for feed_venue in feed_venues:
+                    try:
+                        feed_events = await _fetch_url_scraper(
+                            feed_venue["scraper_type"], feed_venue["url"], feed_venue["name"]
+                        )
+                    except Exception as e:
+                        # One unreachable source should not fail the whole search.
+                        print(f"[My Venues] Skipping {feed_venue['name']}: {e}")
+                        continue
+
+                    feed_events = _filter_feed_events(
+                        feed_events, end_date, keyword, classification, day_of_week
+                    )
+                    for event in feed_events:
+                        event_id = event.get("ticketmaster_id")
+                        if event_id and event_id not in seen_event_ids:
+                            seen_event_ids.add(event_id)
+                            combined_events.append(event)
+
             # Sort combined results by date and time
             combined_events.sort(
                 key=lambda e: (
@@ -258,7 +358,34 @@ async def ticketmaster_search(
 
                 return {"total": len(events), "events": events}
 
-        # City Winery search
+        # No-browser URL scrapers: City Winery feeds, MetroTix HTML
+        if scraper in URL_SCRAPERS:
+            if selected_venue:
+                source_url, source_name = selected_venue["url"], selected_venue["name"]
+            elif scraper == "city_winery_feed":
+                # No saved venue selected: pick the City Winery city by region.
+                source_url = "chicago" if region == "chicago" else None
+                source_name = None
+            else:
+                raise HTTPException(status_code=400, detail="Select a saved venue to search MetroTix")
+
+            events = await _fetch_url_scraper(scraper, source_url, source_name)
+
+            # Same date range, keyword, category and day filters as Ticketmaster.
+            events = _filter_feed_events(
+                events, end_date, keyword, classification, day_of_week
+            )
+
+            for event in events:
+                if not event.get("ticketmaster_id"):
+                    event["ticketmaster_id"] = (
+                        event.get("event_url", "").split("/")[-1]
+                        or str(uuid.uuid4())
+                    )
+
+            return {"total": len(events), "events": events}
+
+        # City Winery search - legacy Playwright scraper (unchanged)
         if scraper in ("city_winery", "CW"):
             from scrapers.city_winery import scrape_city_winery_st_louis
             from scrapers.ticketmaster_api import filter_events_by_day

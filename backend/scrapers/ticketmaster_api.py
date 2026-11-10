@@ -6,6 +6,7 @@ Defaults to Saint Louis, MO area for all searches.
 API docs: https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
 """
 import aiohttp
+import asyncio
 import logging
 import json
 from datetime import datetime, timedelta
@@ -27,6 +28,10 @@ from scrapers.ticketmaster_venues import (
     calculate_distance,
     encode_geohash
 )
+
+# Per-request limit so one slow Ticketmaster call cannot hang a search.
+REQUEST_TIMEOUT_SECONDS = 30
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
 
 # ── Logging Setup (Daily Log Files) ──────────────────────────────────────────
 logger = logging.getLogger("ticketmaster_api")
@@ -242,7 +247,10 @@ async def search_events(
     params = {
         "apikey": get_ticketmaster_api_key(),
         "size": fetch_size,
-        "page": page
+        "page": page,
+        # Sort by date on Ticketmaster's side so ordering is consistent across
+        # pages (the default "relevance" order made page 2 restart at today).
+        "sort": "date,asc"
     }
 
     # A specific Ticketmaster venue ID takes precedence over city/state.
@@ -281,7 +289,7 @@ async def search_events(
     
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(endpoint, params=params) as response:
+            async with session.get(endpoint, params=params, timeout=REQUEST_TIMEOUT) as response:
                 duration_ms = (time.time() - start_time) * 1000
                 
                 if response.status == 401:
@@ -314,6 +322,13 @@ async def search_events(
             duration_ms = (time.time() - start_time) * 1000
             log_api_call(endpoint, params, {"error": str(e)}, 0, duration_ms)
             raise Exception(f"Network error: {e}")
+        except asyncio.TimeoutError:
+            duration_ms = (time.time() - start_time) * 1000
+            log_api_call(endpoint, params, {"error": "timeout"}, 0, duration_ms)
+            raise Exception(
+                f"Ticketmaster did not respond within {REQUEST_TIMEOUT_SECONDS} seconds. "
+                "Please try again or narrow your search."
+            )
     
     # Convert to standard format
     events = []
@@ -413,7 +428,7 @@ async def get_event_by_id(event_id: str) -> Optional[dict]:
     
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(endpoint, params=params) as response:
+            async with session.get(endpoint, params=params, timeout=REQUEST_TIMEOUT) as response:
                 duration_ms = (time.time() - start_time) * 1000
                 
                 if response.status == 404:
@@ -433,6 +448,10 @@ async def get_event_by_id(event_id: str) -> Optional[dict]:
             duration_ms = (time.time() - start_time) * 1000
             log_api_call(endpoint, params, {"error": str(e)}, 0, duration_ms)
             raise Exception(f"Network error: {e}")
+        except asyncio.TimeoutError:
+            duration_ms = (time.time() - start_time) * 1000
+            log_api_call(endpoint, params, {"error": "timeout"}, 0, duration_ms)
+            raise Exception(f"Ticketmaster did not respond within {REQUEST_TIMEOUT_SECONDS} seconds.")
     
     return _parse_event(data)
 
